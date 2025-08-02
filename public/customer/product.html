@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Product Details</title>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f9f9f9;
+    }
+
+    .product-container {
+      background: white;
+      max-width: 700px;
+      margin: 40px auto;
+      padding: 24px;
+      border-radius: 10px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    .product-container img {
+      width: 100%;
+      max-height: 350px;
+      object-fit: cover;
+      border-radius: 6px;
+    }
+
+    .product-info h1 {
+      margin-top: 20px;
+      color: #222;
+      font-size: 28px;
+    }
+
+    .product-info p {
+      font-size: 16px;
+      margin: 10px 0;
+      color: #555;
+    }
+
+    .buy-button {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      margin-top: 25px;
+      font-size: 16px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    .buy-button:hover {
+      background-color: #0056b3;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="product-container">
+    <img id="product-image" src="" alt="Product Image" />
+    <div class="product-info">
+      <h1 id="product-name"></h1>
+      <p><strong>Price:</strong> ₹<span id="product-price"></span></p>
+      <p><strong>Category:</strong> <span id="product-category"></span></p>
+      <p><strong>Stock:</strong> <span id="product-stock"></span></p>
+      <p><strong>Description:</strong> <span id="product-description"></span></p>
+    </div>
+    <button class="buy-button" onclick="buyProduct()">Add to Cart</button>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const productId = urlParams.get("id");
+
+    async function loadProduct() {
+      if (!productId) {
+        alert("No product ID found");
+        return;
+      }
+
+      try {
+        const res = await axios.get(`/api/customer/products/${productId}`);
+        const product = res.data;
+
+        document.getElementById("product-image").src = product.image
+          ? `http://localhost:5000/uploads/${product.image}`
+          : "https://via.placeholder.com/600x300?text=No+Image";
+
+        document.getElementById("product-name").textContent = product.name;
+        document.getElementById("product-price").textContent = product.price;
+        document.getElementById("product-category").textContent = product.category || "N/A";
+        document.getElementById("product-stock").textContent = product.stock ?? "N/A";
+        document.getElementById("product-description").textContent = product.description || "No description.";
+      } catch (err) {
+        console.error("Failed to fetch product:", err.message);
+        alert("Could not load product details.");
+      }
+    }
+
+    async function buyProduct() {
+      const token = localStorage.getItem("customerToken");
+      if (!token) {
+        alert("You need to log in to add to cart.");
+        return;
+      }
+
+      try {
+        const res = await axios.get(`/api/customer/products/${productId}`);
+        const product = res.data;
+
+        let cart = JSON.parse(localStorage.getItem("cart")) || [];
+
+        const existingItem = cart.find(item => item.productId === productId);
+        if (existingItem) {
+          existingItem.quantity += 1;
+        } else {
+          cart.push({ productId: productId, quantity: 1 });
+        }
+
+        localStorage.setItem("cart", JSON.stringify(cart));
+        alert("✅ Product added to cart!");
+      } catch (err) {
+        console.error("Failed to add to cart:", err.message);
+        alert("❌ Failed to add to cart");
+      }
+    }
+
+    loadProduct();
+  </script>
+</body>
+
+</html>

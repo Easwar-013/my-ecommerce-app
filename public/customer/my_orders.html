@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>My Orders</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background-color: #f4f4f4;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    .orders {
+      margin-top: 30px;
+    }
+
+    .order {
+      background: white;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+      box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .order-header {
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    .order-items {
+      margin-left: 15px;
+      margin-bottom: 8px;
+    }
+
+    .order-item {
+      margin-bottom: 4px;
+    }
+
+    .view-details-btn,
+    .cancel-order-btn {
+      background-color: #007bff;
+      color: white;
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-right: 10px;
+    }
+
+    .cancel-order-btn {
+      background-color: #dc3545;
+    }
+
+    .view-details-btn:hover {
+      background-color: #0056b3;
+    }
+
+    .cancel-order-btn:hover {
+      background-color: #c82333;
+    }
+
+    .back-btn {
+      background-color: #007bff;
+      color: white;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 30px;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 999;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0, 0, 0, 0.4);
+    }
+
+    .modal-content {
+      background-color: white;
+      margin: 10% auto;
+      padding: 20px;
+      border-radius: 6px;
+      width: 80%;
+      max-width: 500px;
+    }
+
+    .close {
+      color: #aaa;
+      float: right;
+      font-size: 24px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .close:hover {
+      color: black;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>My Orders</h1>
+  <div class="orders" id="orders"></div>
+  <button class="back-btn" id="back-btn">← Back to Dashboard</button>
+
+  <!-- Modal -->
+  <div id="detailsModal" class="modal">
+    <div class="modal-content">
+      <span class="close" id="closeModal">&times;</span>
+      <h3>Order Details</h3>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+
+  <script>
+    let ordersData = [];
+
+    async function loadOrders() {
+      const token = localStorage.getItem("customerToken");
+      if (!token) {
+        alert("You must be logged in to view this page.");
+        window.location.href = "/customer/login.html";
+        return;
+      }
+
+      try {
+        const res = await axios.get("/api/customer/orders", {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        let orders = res.data.orders || [];
+        ordersData = orders;
+
+        const ordersDiv = document.getElementById("orders");
+        ordersDiv.innerHTML = "";
+
+        if (orders.length === 0) {
+          ordersDiv.innerHTML = "<p>No orders found.</p>";
+          return;
+        }
+
+        orders.forEach(order => {
+          const div = document.createElement("div");
+          div.className = "order";
+          div.id = `order-${order._id}`;
+          div.innerHTML = `
+            <div class="order-header">
+              Order #${order._id} | Date: ${new Date(order.createdAt).toLocaleDateString()} | Status: ${order.status}
+            </div>
+            <div class="order-items">
+              <div class="order-item">- ${order.product?.name || 'Unknown Product'} x${order.quantity} - ₹${(order.totalPrice).toFixed(2)}</div>
+            </div>
+            <button class="view-details-btn" onclick="viewDetails('${order._id}')">View Details</button>
+            <button class="cancel-order-btn" onclick="cancelOrder('${order._id}')">Cancel Order</button>
+          `;
+          ordersDiv.appendChild(div);
+        });
+
+      } catch (err) {
+        console.error("Error fetching orders:", err.response?.data || err.message);
+        alert("Failed to load orders.");
+      }
+    }
+
+    function viewDetails(orderId) {
+      const order = ordersData.find(o => o._id === orderId);
+      if (!order) return;
+
+      const content = `
+        <p><strong>${order.product?.name || 'Unknown Product'}</strong><br>
+        Quantity: ${order.quantity}<br>
+        Price: ₹${order.product?.price || 0} each<br>
+        Total: ₹${order.totalPrice}</p>
+      `;
+
+      document.getElementById("modalContent").innerHTML = content;
+      document.getElementById("detailsModal").style.display = "block";
+    }
+
+    function cancelOrder(orderId) {
+      const confirmCancel = confirm("Are you sure you want to cancel this order?");
+      if (confirmCancel) {
+        const token = localStorage.getItem("customerToken");
+        axios.delete(`/api/customer/orders/${orderId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+          .then(res => {
+            alert(res.data.message);
+            const orderDiv = document.getElementById(`order-${orderId}`);
+            if (orderDiv) orderDiv.remove();
+          })
+          .catch(err => {
+            console.error("Error cancelling order:", err.response?.data || err.message);
+            alert("Failed to cancel order.");
+          });
+      }
+    }
+
+    function goBack() {
+      window.location.href = "/customer/dashboard.html";
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      loadOrders();
+      document.getElementById("back-btn").addEventListener("click", goBack);
+      document.getElementById("closeModal").addEventListener("click", () => {
+        document.getElementById("detailsModal").style.display = "none";
+      });
+      window.addEventListener("click", (event) => {
+        if (event.target == document.getElementById("detailsModal")) {
+          document.getElementById("detailsModal").style.display = "none";
+        }
+      });
+    });
+  </script>
+</body>
+
+</html>

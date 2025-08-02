@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Welcome - E-Commerce Portal</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Roboto', sans-serif;
+      background: linear-gradient(135deg, #f0f4f8, #d9e2ec);
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      color: #333;
+    }
+
+    h1 {
+      font-size: 3rem;
+      margin-bottom: 50px;
+      color: #2c3e50;
+    }
+
+    .btn-container {
+      display: flex;
+      gap: 40px;
+    }
+
+    .btn {
+      padding: 16px 32px;
+      font-size: 18px;
+      font-weight: 600;
+      text-decoration: none;
+      color: #fff;
+      background: linear-gradient(to right, #28a745, #218838);
+      border: none;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      transition: transform 0.2s ease, box-shadow 0.3s ease;
+    }
+
+    .btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>Welcome to E-Commerce Portal</h1>
+
+  <div class="btn-container">
+    <a href="admin_login.html" class="btn">Admin Login</a>
+    <a href="login.html" class="btn">Customer Login</a>
+  </div>
+
+</body>
+
+</html>

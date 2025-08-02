@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Customer Dashboard</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+  
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      background-color: #f8f9fa;
+      color: #333;
+    }
+  
+    nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background-color: #007bff;
+      color: white;
+      padding: 14px 24px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    }
+  
+    nav strong {
+      font-size: 22px;
+    }
+  
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+  
+    .nav-right input {
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: none;
+      font-size: 14px;
+      width: 200px;
+    }
+  
+    .profile {
+      background-color: white;
+      color: #007bff;
+      padding: 6px 16px;
+      border-radius: 30px;
+      font-weight: 600;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+  
+    .profile:hover {
+      background-color: #e9f2ff;
+      color: #0056b3;
+    }
+  
+    h1 {
+      text-align: center;
+      color: #333;
+      margin: 30px 0 20px;
+    }
+  
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+  
+    .controls select,
+    .controls input {
+      padding: 10px;
+      font-size: 14px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      min-width: 180px;
+    }
+  
+    .controls button {
+      padding: 10px 16px;
+      font-size: 14px;
+      border-radius: 6px;
+      border: none;
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+  
+    .controls button:hover {
+      background-color: #0056b3;
+    }
+  
+    .products {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 24px;
+      padding: 0 20px;
+      max-width: 1200px;
+      margin: 0 auto 40px;
+    }
+  
+    .product-card {
+      background-color: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      overflow: hidden;
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+  
+    .product-card:hover {
+      transform: translateY(-6px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+    }
+  
+    .product-card img {
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+    }
+  
+    .product-info {
+      padding: 16px;
+    }
+  
+    .product-info h2 {
+      font-size: 18px;
+      margin: 0 0 10px;
+      color: #007bff;
+    }
+  
+    .product-info p {
+      margin: 6px 0;
+      font-size: 14px;
+      color: #555;
+    }
+  
+    .buy-btn {
+      margin-top: 12px;
+      padding: 8px 14px;
+      font-size: 14px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+  
+    .buy-btn:hover {
+      background-color: #218838;
+    }
+  
+    .pagination {
+      text-align: center;
+      margin: 30px 0;
+    }
+  
+    .pagination button {
+      margin: 0 4px;
+      padding: 8px 14px;
+      font-size: 14px;
+      border: none;
+      background-color: #007bff;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+  
+    .pagination button:disabled {
+      background-color: #999;
+      cursor: not-allowed;
+    }
+  
+    @media (max-width: 600px) {
+      .nav-right {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+      }
+  
+      .controls {
+        flex-direction: column;
+        align-items: center;
+      }
+  
+      .nav-right input {
+        width: 100%;
+      }
+  
+      .products {
+        padding: 0 12px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- Navigation bar -->
+  <nav>
+    <div><strong>Customer Dashboard</strong></div>
+    <div class="nav-right">
+      <input type="text" id="search-name" placeholder="Search products..." />
+      <div class="profile" id="profile-btn">My Cart</div>
+      <div class="profile" id="my-profile-btn" style="cursor:pointer;">My Profile</div>
+      <div class="profile" id="my-orders-btn" style="cursor:pointer;">My Orders</div>
+    </div>
+  </nav>
+
+  <h1>Available Products</h1>
+
+  <div class="controls">
+    <select id="sort-select">
+      <option value="">Sort by</option>
+      <option value="price_asc">Price ↑</option>
+      <option value="price_desc">Price ↓</option>
+      <option value="name_asc">Name A-Z</option>
+      <option value="name_desc">Name Z-A</option>
+    </select>
+
+    <input type="text" id="filter-category" placeholder="Category (e.g., electronics)" />
+    <!-- Removed max price filter input as per user request -->
+    <!-- <input type="number" id="filter-price" placeholder="Max Price ₹" /> -->
+
+    <button onclick="applyFilters()">Apply</button>
+    <button onclick="clearFilters()">Clear</button>
+  </div>
+
+  <div class="products" id="product-container"></div>
+  <div class="pagination" id="pagination"></div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const token = localStorage.getItem("customerToken");
+      if (!token) {
+        alert("You are not logged in. Redirecting to login page.");
+        window.location.href = "/customer/login.html";
+        return;
+      }
+
+      const PRODUCTS_API = "/api/customer/products";
+      const LIMIT = 20;
+      let currentPage = 1;
+      let totalPages = 1;
+      let sort = "";
+      let filterCategory = "";
+      let filterPrice = "";
+      let searchName = "";
+
+      async function fetchProducts(page = 1) {
+        try {
+          const params = new URLSearchParams({ page, limit: LIMIT });
+
+          if (sort) {
+            const [key, order] = sort.split("_");
+            params.append("sortBy", key);
+            params.append("order", order);
+          }
+          if (filterCategory) params.append("category", filterCategory);
+      // Removed maxPrice filter parameter as per user request
+      // if (filterPrice) params.append("maxPrice", filterPrice);
+          if (searchName) params.append("name", searchName);
+
+          const res = await axios.get(`${PRODUCTS_API}?${params.toString()}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+
+          const products = res.data.products || [];
+          totalPages = Math.ceil(res.data.total / LIMIT);
+          renderProducts(products);
+          renderPagination();
+        } catch (err) {
+          console.error("Error fetching products:", err.response?.data || err.message);
+          alert("Failed to load products.");
+        }
+      }
+
+      function renderProducts(products) {
+        const container = document.getElementById("product-container");
+        container.innerHTML = "";
+
+        if (products.length === 0) {
+          container.innerHTML = "<p>No products available.</p>";
+          return;
+        }
+
+        products.forEach(product => {
+          const card = document.createElement("div");
+          card.className = "product-card";
+
+          const imageURL = product.image
+            ? `/uploads/${product.image}`
+            : "https://via.placeholder.com/300x180?text=No+Image";
+
+          card.innerHTML = `
+          <a href="product.html?id=${product._id}" style="text-decoration: none; color: inherit;">
+            <img src="${imageURL}" alt="${product.name}" />
+            <div class="product-info">
+              <h2>${product.name}</h2>
+              <p><strong>Price:</strong> ₹${product.price}</p>
+              <p><strong>Category:</strong> ${product.category || "N/A"}</p>
+              <p><strong>Stock:</strong> ${product.stock ?? "N/A"}</p>
+              <p><strong>Description:</strong> ${product.description}</p>
+            </div>
+          </a>
+        `;
+
+          container.appendChild(card);
+        });
+      }
+
+      function renderPagination() {
+        const paginationDiv = document.getElementById("pagination");
+        paginationDiv.innerHTML = "";
+
+        for (let i = 1; i <= totalPages; i++) {
+          const btn = document.createElement("button");
+          btn.textContent = i;
+          btn.disabled = i === currentPage;
+          btn.onclick = () => {
+            currentPage = i;
+            fetchProducts(currentPage);
+          };
+          paginationDiv.appendChild(btn);
+        }
+      }
+
+      window.applyFilters = () => {
+        sort = document.getElementById("sort-select").value;
+        filterCategory = document.getElementById("filter-category").value.trim();
+      // Removed maxPrice filter input as per user request
+      // filterPrice = document.getElementById("filter-price").value.trim();
+        searchName = document.getElementById("search-name").value.trim();
+        currentPage = 1;
+        fetchProducts(currentPage);
+      };
+
+      window.clearFilters = () => {
+        document.getElementById("sort-select").value = "";
+        document.getElementById("filter-category").value = "";
+      // Removed maxPrice filter input clear as per user request
+      // document.getElementById("filter-price").value = "";
+        document.getElementById("search-name").value = "";
+        sort = "";
+        filterCategory = "";
+        filterPrice = "";
+        searchName = "";
+        currentPage = 1;
+        fetchProducts(currentPage);
+      };
+
+      // Trigger filter on search input in navbar
+      document.getElementById("search-name").addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          window.applyFilters();
+        }
+      });
+
+      // Add filter inputs Enter keypress event listeners
+      document.getElementById("filter-category").addEventListener("keypress", (e) => {
+        if (e.key === "Enter") {
+          window.applyFilters();
+        }
+      });
+      // Removed maxPrice filter input keypress event as per user request
+      // document.getElementById("filter-price").addEventListener("keypress", (e) => {
+      //   if (e.key === "Enter") {
+      //     window.applyFilters();
+      //   }
+      // });
+
+      // Modify renderProducts to call attachBuyButtonListeners after rendering
+      const originalRenderProducts = renderProducts;
+      renderProducts = function(products) {
+        originalRenderProducts(products);
+        attachBuyButtonListeners();
+      };
+
+
+      // Initial fetch
+      fetchProducts(currentPage);
+
+      // Add profile button click handler
+      document.getElementById("profile-btn").addEventListener("click", () => {
+        window.location.href = "/customer/profile.html";
+      });
+      document.getElementById("my-profile-btn").addEventListener("click", () => {
+        window.location.href = "/customer/my_profile.html";
+      });
+      document.getElementById("my-orders-btn").addEventListener("click", () => {
+        window.location.href = "/customer/my_orders.html";
+      });
+    });
+
+    function attachBuyButtonListeners() {
+      document.querySelectorAll(".buy-btn").forEach(button => {
+        button.removeEventListener("click", buyButtonHandler);
+        button.addEventListener("click", buyButtonHandler);
+      });
+    }
+    
+    function buyButtonHandler(e) {
+      const productId = e.target.getAttribute("data-id");
+      addToCart(productId);
+    }
+    
+    // Add item to cart (localStorage)
+    function addToCart(productId) {
+      // Get existing cart from localStorage or initialize empty array
+      let cart = [];
+      try {
+        cart = JSON.parse(localStorage.getItem("cart")) || [];
+      } catch (e) {
+        console.error("Error parsing cart from localStorage:", e);
+        cart = [];
+      }
+      
+      // Check if item already exists in cart
+      const existingItemIndex = cart.findIndex(item => item.productId === productId);
+      
+      if (existingItemIndex > -1) {
+        // If item exists, increment quantity
+        cart[existingItemIndex].quantity += 1;
+      } else {
+        // If item doesn't exist, add new item
+        cart.push({
+          productId: productId,
+          quantity: 1
+        });
+      }
+      
+      try {
+        // Save updated cart to localStorage
+        localStorage.setItem("cart", JSON.stringify(cart));
+        alert("Product added to cart!");
+      } catch (e) {
+        console.error("Error saving cart to localStorage:", e);
+        alert("Failed to add product to cart.");
+      }
+    }
+
+
+  </script>
+
+</body>
+
+</html>

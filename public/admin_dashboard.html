@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f4f6f9;
+      color: #333;
+    }
+
+    nav.main-nav {
+      background-color: #343a40;
+      color: white;
+      padding: 20px;
+      font-size: 24px;
+      font-weight: 600;
+    }
+
+    nav.links {
+      background-color: #212529;
+      padding: 10px 20px;
+      display: flex;
+      gap: 30px;
+    }
+
+    nav.links a {
+      color: white;
+      text-decoration: none;
+      font-weight: 500;
+      transition: color 0.3s ease;
+    }
+
+    nav.links a:hover {
+      color: #ffc107;
+    }
+
+    .summary {
+      background-color: #fff;
+      padding: 20px;
+      margin: 20px auto;
+      max-width: 95%;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .summary div {
+      font-size: 16px;
+      font-weight: 600;
+      color: #555;
+    }
+
+    .stats {
+      display: flex;
+      gap: 30px;
+      justify-content: center;
+      margin: 40px auto;
+      flex-wrap: wrap;
+      max-width: 1200px;
+    }
+
+    .stat-card {
+      background-color: white;
+      padding: 25px 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      width: 220px;
+      text-align: center;
+      transition: transform 0.2s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-5px);
+    }
+
+    .stat-card h2 {
+      font-size: 42px;
+      color: #007bff;
+      margin-bottom: 8px;
+    }
+
+    .stat-card p {
+      font-size: 18px;
+      color: #555;
+    }
+
+    #preview {
+      width: 100%;
+      max-height: 200px;
+      object-fit: contain;
+      margin-top: 10px;
+      border: 1px solid #ccc;
+      display: none;
+    }
+
+    table {
+      width: 95%;
+      margin: 40px auto;
+      border-collapse: collapse;
+      background-color: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    }
+
+    th,
+    td {
+      padding: 12px 15px;
+      text-align: left;
+    }
+
+    th {
+      background-color: #007bff;
+      color: white;
+    }
+
+    tr:nth-child(even) {
+      background-color: #f2f2f2;
+    }
+
+    tr:hover {
+      background-color: #e9ecef;
+    }
+
+    button {
+      padding: 6px 12px;
+      font-size: 14px;
+      cursor: pointer;
+      border: none;
+      border-radius: 4px;
+      transition: background-color 0.3s ease;
+    }
+
+    .edit-btn {
+      background-color: #28a745;
+      color: white;
+    }
+
+    .edit-btn:hover {
+      background-color: #218838;
+    }
+
+    .delete-btn {
+      background-color: #dc3545;
+      color: white;
+    }
+
+    .delete-btn:hover {
+      background-color: #c82333;
+    }
+
+    @media screen and (max-width: 768px) {
+      .summary {
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .stats {
+        flex-direction: column;
+        align-items: center;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <nav class="main-nav">Admin Dashboard</nav>
+
+  <nav class="links">
+    <a href="admin_products.html">Products</a>
+    <a href="admin_customer.html">Customers</a>
+    <a href="admin_orders.html">Orders</a>
+    <a href="admin_settings.html">Settings</a>
+    <a href="index.html">Logout</a>
+  </nav>
+
+  <div class="summary">
+    <div>
+      🛍️ Total Products: <span id="product-count">0</span> &nbsp;&nbsp;&nbsp;
+      👥 Total Customers: <span id="customer-count">0</span>
+    </div>
+    <div>
+      📦 Orders → Pending (<span id="orders-pending">0</span>) |
+      Processing (<span id="orders-processing">0</span>) |
+      Shipped (<span id="orders-shipped">0</span>)
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card">
+      <h2 id="product-count">0</h2>
+      <p>Products</p>
+    </div>
+    <div class="stat-card">
+      <h2 id="customer-count">0</h2>
+      <p>Customers</p>
+    </div>
+    <div class="stat-card">
+      <h2 id="orders-pending">0</h2>
+      <p>Pending Orders</p>
+    </div>
+    <div class="stat-card">
+      <h2 id="orders-processing">0</h2>
+      <p>Processing</p>
+    </div>
+    <div class="stat-card">
+      <h2 id="orders-shipped">0</h2>
+      <p>Shipped</p>
+    </div>
+  </div>
+
+  <script>
+    async function fetchCounts() {
+      try {
+        const token = localStorage.getItem("adminToken");
+        const [productsRes, customersRes] = await Promise.all([
+          axios.get('/api/admin/products/count', { headers: { Authorization: `Bearer ${token}` } }),
+          axios.get('/api/admin/customers/count', { headers: { Authorization: `Bearer ${token}` } })
+        ]);
+
+        document.querySelectorAll('#product-count').forEach(el => el.textContent = productsRes.data.count || 0);
+        document.querySelectorAll('#customer-count').forEach(el => el.textContent = customersRes.data.count || 0);
+
+        // Placeholder values for orders
+        document.getElementById('orders-pending').textContent = 0;
+        document.getElementById('orders-processing').textContent = 0;
+        document.getElementById('orders-shipped').textContent = 0;
+      } catch (err) {
+        console.error('Error fetching counts:', err);
+        alert('Failed to load dashboard data.');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', fetchCounts);
+  </script>
+</body>
+
+</html>

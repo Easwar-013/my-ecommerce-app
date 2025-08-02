@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin - Products</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 text-gray-800 min-h-screen font-sans">
+    <div class="max-w-6xl mx-auto p-6">
+        <h1 class="text-3xl font-bold mb-6 text-center text-indigo-600">Admin Product Dashboard</h1>
+
+        <!-- Form Controls -->
+        <div class="bg-white shadow-lg rounded-lg p-6 mb-8 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input type="text" id="name" placeholder="Product Name" class="border p-2 rounded w-full" />
+            <input type="number" id="price" placeholder="Price ₹" class="border p-2 rounded w-full" />
+            <input type="text" id="category" placeholder="Category" class="border p-2 rounded w-full" />
+            <input type="number" id="stock" placeholder="Stock" class="border p-2 rounded w-full" />
+            <input type="text" id="description" placeholder="Description" class="border p-2 rounded w-full" />
+            <input type="file" id="imageInput" accept="image/*" onchange="previewImage()" class="w-full p-2" />
+
+            <div class="col-span-1 md:col-span-2 flex items-center gap-4 mt-2">
+                <img id="preview" src="" class="w-36 h-24 object-cover rounded shadow hidden" alt="Preview" />
+            </div>
+
+            <div class="col-span-1 md:col-span-2 flex gap-4 mt-4">
+                <button onclick="addOrUpdateProduct()"
+                    class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition">Save
+                    Product</button>
+                <button onclick="clearForm()"
+                    class="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400 transition">Clear</button>
+            </div>
+        </div>
+
+        <!-- Product Table -->
+        <div class="overflow-x-auto bg-white shadow rounded-lg">
+            <table class="min-w-full table-auto" id="productContainer">
+                <!-- Populated by JS -->
+            </table>
+        </div>
+    </div>
+
+    <!-- Your Existing Script -->
+    <script>
+        const token = localStorage.getItem("adminToken");
+        if (!token) {
+            alert("Not logged in. Redirecting...");
+            window.location.href = "/admin/login.html";
+        }
+
+        const API = "http://localhost:5000/api/admin/products";
+        let editProductId = null;
+
+        async function fetchProducts() {
+            try {
+                const res = await axios.get(API, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+
+                const products = res.data;
+                if (!Array.isArray(products)) throw new Error("Invalid product list");
+                renderProducts(products);
+            } catch (err) {
+                console.error("Failed to load products:", err);
+                alert("❌ Failed to load products");
+            }
+        }
+
+        function renderProducts(products) {
+            const container = document.getElementById("productContainer");
+            container.innerHTML = `
+          <thead class="bg-indigo-600 text-white">
+            <tr>
+              <th class="p-3 text-left">#</th>
+              <th class="p-3 text-left">Name</th>
+              <th class="p-3 text-left">Price</th>
+              <th class="p-3 text-left">Stock</th>
+              <th class="p-3 text-left">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${products.map((p, index) => `
+              <tr class="border-t hover:bg-gray-50">
+                <td class="p-3">${index + 1}</td>
+                <td class="p-3 flex items-center gap-2">
+                  <img src="${p.image ? `/uploads/${p.image}` : 'https://via.placeholder.com/50'}" alt="${p.name}" class="w-10 h-10 object-cover rounded" />
+                  ${p.name}
+                </td>
+                <td class="p-3">₹${p.price}</td>
+                <td class="p-3">${p.stock ?? "N/A"}</td>
+                <td class="p-3 flex gap-2">
+                  <button onclick='editProduct(${JSON.stringify(p)})' class="bg-yellow-400 px-3 py-1 rounded hover:bg-yellow-500 text-white">Edit</button>
+                  <button onclick='deleteProduct("${p._id}")' class="bg-red-500 px-3 py-1 rounded hover:bg-red-600 text-white">Delete</button>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        `;
+        }
+
+        function editProduct(p) {
+            editProductId = p._id;
+            document.getElementById("name").value = p.name;
+            document.getElementById("price").value = p.price;
+            document.getElementById("category").value = p.category;
+            document.getElementById("stock").value = p.stock;
+            document.getElementById("description").value = p.description;
+            document.getElementById("preview").src = p.image ? `/uploads/${p.image}` : "";
+            document.getElementById("preview").style.display = p.image ? "block" : "none";
+        }
+
+        async function deleteProduct(id) {
+            if (!confirm("Are you sure you want to delete this product?")) return;
+            try {
+                await axios.delete(`${API}/${id}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                alert("Product deleted.");
+                fetchProducts();
+            } catch (err) {
+                alert("Failed to delete.");
+                console.error(err.response?.data || err.message);
+            }
+        }
+
+        async function addOrUpdateProduct() {
+            const name = document.getElementById("name").value;
+            const price = document.getElementById("price").value;
+            const category = document.getElementById("category").value;
+            const stock = document.getElementById("stock").value;
+            const description = document.getElementById("description").value;
+            const imageFile = document.getElementById("imageInput").files[0];
+
+            if (!name || !price || !category || !stock || !description) {
+                alert("Please fill all fields.");
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append("name", name);
+            formData.append("price", price);
+            formData.append("category", category);
+            formData.append("stock", stock);
+            formData.append("description", description);
+            if (imageFile) formData.append("image", imageFile);
+
+            try {
+                if (editProductId) {
+                    await axios.put(`${API}/${editProductId}`, formData, {
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                            "Content-Type": "multipart/form-data"
+                        }
+                    });
+                    alert("Product updated.");
+                    editProductId = null;
+                } else {
+                    await axios.post(API, formData, {
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                            "Content-Type": "multipart/form-data"
+                        }
+                    });
+                    alert("Product added.");
+                }
+
+                clearForm();
+                fetchProducts();
+            } catch (err) {
+                alert("Failed to save product.");
+                console.error(err.response?.data || err.message);
+            }
+        }
+
+        function previewImage() {
+            const input = document.getElementById("imageInput");
+            const preview = document.getElementById("preview");
+            const file = input.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    preview.src = reader.result;
+                    preview.classList.remove("hidden");
+                };
+                reader.readAsDataURL(file);
+            } else {
+                preview.classList.add("hidden");
+            }
+        }
+
+        function clearForm() {
+            document.getElementById("name").value = "";
+            document.getElementById("price").value = "";
+            document.getElementById("category").value = "";
+            document.getElementById("stock").value = "";
+            document.getElementById("description").value = "";
+            document.getElementById("imageInput").value = "";
+            document.getElementById("preview").classList.add("hidden");
+        }
+
+        fetchProducts();
+    </script>
+</body>
+
+</html>

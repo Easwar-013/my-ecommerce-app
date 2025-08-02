@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Your Profile</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background-color: #f4f4f4; }
+    h1 { text-align: center; }
+    .orders { margin-top: 30px; }
+    .order { background: white; padding: 15px; border-radius: 6px; margin-bottom: 10px; box-shadow: 0 0 5px rgba(0,0,0,0.1); }
+    .logout-btn {
+      background-color: #dc3545;
+      color: white;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-top: 30px;
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    
+    /* Checkout Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+    }
+    
+    .modal-content {
+      background-color: #fefefe;
+      margin: 5% auto;
+      padding: 20px;
+      border: 1px solid #888;
+      width: 80%;
+      max-width: 500px;
+      border-radius: 8px;
+    }
+    
+    .close {
+      color: #aaa;
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    
+    .close:hover,
+    .close:focus {
+      color: black;
+      text-decoration: none;
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    
+    .form-group input, .form-group select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    
+    .form-row {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .form-row .form-group {
+      flex: 1;
+    }
+    
+    .order-summary {
+      background-color: #f9f9f9;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 15px 0;
+    }
+    
+    .order-item {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 5px;
+    }
+    
+    .total {
+      font-weight: bold;
+      border-top: 1px solid #ddd;
+      padding-top: 10px;
+      margin-top: 10px;
+    }
+    
+    .place-order-btn {
+      background-color: #28a745;
+      color: white;
+      padding: 10px 16px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      width: 100%;
+      font-size: 16px;
+    }
+    
+    .place-order-btn:hover {
+      background-color: #218838;
+    }
+  </style>
+</head>
+<body>
+  <h1>Your Cart</h1>
+  <div class="orders" id="orders"></div>
+  <button class="logout-btn" id="logout-btn">🚪 Logout</button>
+  
+  <!-- Checkout Modal -->
+  <div id="checkoutModal" class="modal">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <h2>Checkout</h2>
+      <form id="checkoutForm">
+        <div class="form-group">
+          <label for="address1">Shipping Address:</label>
+          <input type="text" id="address1" placeholder="Address Line 1" required>
+        </div>
+        <div class="form-group">
+          <input type="text" id="address2" placeholder="Address Line 2">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <input type="text" id="city" placeholder="City" required>
+          </div>
+          <div class="form-group">
+            <input type="text" id="state" placeholder="State" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <input type="text" id="zip" placeholder="ZIP" required>
+          </div>
+          <div class="form-group">
+            <select id="country" required>
+              <option value="">Select Country</option>
+              <option value="India">India</option>
+              <option value="USA">USA</option>
+              <option value="UK">UK</option>
+              <option value="Canada">Canada</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <input type="tel" id="phone" placeholder="Phone" required>
+        </div>
+        
+        <div id="orderSummary" class="order-summary">
+          <h3>Order Summary:</h3>
+          <div id="orderItems"></div>
+          <div class="order-item total">
+            <span>Total:</span>
+            <span id="totalAmount"></span>
+          </div>
+        </div>
+        
+        <button type="submit" class="place-order-btn">Place Order</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // Global variables to store current order and item for checkout
+    let currentOrder = null;
+    let allOrders = [];
+    
+    async function loadOrders() {
+      const token = localStorage.getItem("customerToken");
+      if (!token) {
+        alert("You must be logged in to view this page.");
+        window.location.href = "/customer/login.html";
+        return;
+      }
+
+      // Get cart from localStorage
+      console.log("Retrieving cart from localStorage");
+      let cart = JSON.parse(localStorage.getItem("cart")) || [];
+      console.log("Cart contents:", cart);
+      const ordersDiv = document.getElementById("orders");
+      ordersDiv.innerHTML = "";
+
+      if (cart.length === 0) {
+        ordersDiv.innerHTML = "<p>Your cart is empty.</p>";
+        return;
+      }
+
+      // Display cart items
+      const div = document.createElement("div");
+      div.className = "order";
+      
+      // Create items list
+      let itemsHtml = "";
+      let totalAmount = 0;
+      let cartItems = []; // Store cart items for checkout
+      
+      // Display cart items even if we can't fetch product details
+      for (let i = 0; i < cart.length; i++) {
+        const item = cart[i];
+        // We'll try to fetch product details, but display item anyway
+        let product = null;
+        try {
+          console.log("Fetching product details for ID:", item.productId);
+          const res = await axios.get(`/api/customer/products/${item.productId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          product = res.data;
+          console.log("Product details:", product);
+        } catch (err) {
+          console.error("Error fetching product details for ID", item.productId, ":", err);
+          // Continue with null product, we'll display item without details
+        }
+        
+        // Calculate item total if we have product details
+        const itemTotal = product && product.price ? product.price * item.quantity : 0;
+        totalAmount += itemTotal;
+        
+        // Store item for checkout (with or without product details)
+        cartItems.push({
+          productId: item.productId,
+          quantity: item.quantity,
+          name: product ? product.name : `Product ${item.productId}`,
+          price: product ? product.price : 0
+        });
+        
+        // Display item with or without product details
+        if (product) {
+          itemsHtml += `
+            <li style="display: flex; align-items: center; gap: 10px;" data-item-id="${item.productId}">
+              <img src="${product.image ? '/uploads/' + product.image : '/default-product.png'}" alt="${product.name}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">
+              <span>${product.name} × ${item.quantity}</span>
+              <button onclick="deleteItem('${item.productId}')">Delete</button>
+              <button class="checkout-btn" data-item-id="${item.productId}">Check Out</button>
+            </li>
+          `;
+        } else {
+          itemsHtml += `
+            <li style="display: flex; align-items: center; gap: 10px;" data-item-id="${item.productId}">
+              <span>Product ID: ${item.productId} × ${item.quantity}</span>
+              <button onclick="deleteItem('${item.productId}')">Delete</button>
+              <button class="checkout-btn" data-item-id="${item.productId}">Check Out</button>
+            </li>
+          `;
+        }
+      }
+      
+      div.innerHTML = `
+        <p><strong>Cart Items:</strong></p>
+        <p><strong>Total:</strong> ₹${totalAmount.toFixed(2)}</p>
+        <p><strong>Items:</strong></p>
+        <ul>
+          ${itemsHtml}
+        </ul>
+      `;
+      ordersDiv.appendChild(div);
+      
+      // Store cart items globally for checkout
+      window.cartItems = cartItems;
+      
+      // Add event listeners to checkout buttons
+      document.querySelectorAll('.checkout-btn').forEach(button => {
+        button.addEventListener('click', function() {
+          const itemId = this.getAttribute('data-item-id');
+          openCheckout(itemId);
+        });
+      });
+    }
+
+    async function deleteItem(productId) {
+      // Get cart from localStorage
+      let cart = JSON.parse(localStorage.getItem("cart")) || [];
+      
+      // Find item index
+      const itemIndex = cart.findIndex(item => item.productId === productId);
+      
+      if (itemIndex > -1) {
+        // Remove item from cart
+        cart.splice(itemIndex, 1);
+        
+        // Save updated cart to localStorage
+        localStorage.setItem("cart", JSON.stringify(cart));
+        
+        alert("Item removed from cart.");
+        // Re-fetch and re-render cart after deletion
+        await loadOrders();
+      } else {
+        alert("Item not found in cart.");
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem("customerToken");
+      window.location.href = "/login.html";
+    }
+    
+    // Open checkout modal with order details
+    function openCheckout(productId) {
+      // Find the item in cart
+      const item = window.cartItems.find(i => i.productId === productId);
+      if (!item) {
+        alert("Item not found in cart.");
+        return;
+      }
+      
+      // Populate order summary with just this item
+      const orderItemsDiv = document.getElementById('orderItems');
+      orderItemsDiv.innerHTML = '';
+      
+      const itemTotal = (item.price || 0) * item.quantity;
+      
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'order-item';
+      itemDiv.innerHTML = `
+        <span>${item.name} x${item.quantity}</span>
+        <span>₹${itemTotal.toFixed(2)}</span>
+      `;
+      orderItemsDiv.appendChild(itemDiv);
+      
+      document.getElementById('totalAmount').textContent = `₹${itemTotal.toFixed(2)}`;
+      
+      // Show modal
+      document.getElementById('checkoutModal').style.display = 'block';
+    }
+    
+    // Close modal
+    function closeCheckout() {
+      document.getElementById('checkoutModal').style.display = 'none';
+      document.getElementById('checkoutForm').reset();
+    }
+    
+    // Handle form submission
+    async function placeOrder(event) {
+      event.preventDefault();
+      
+      const token = localStorage.getItem("customerToken");
+      if (!token) {
+        alert("You must be logged in to place an order.");
+        return;
+      }
+      
+      // Get form data
+      const address = {
+        line1: document.getElementById('address1').value,
+        line2: document.getElementById('address2').value,
+        city: document.getElementById('city').value,
+        state: document.getElementById('state').value,
+        zip: document.getElementById('zip').value,
+        country: document.getElementById('country').value,
+        phone: document.getElementById('phone').value
+      };
+      
+      // Get cart items from localStorage
+      const cart = JSON.parse(localStorage.getItem("cart")) || [];
+      if (cart.length === 0) {
+        alert("Your cart is empty.");
+        return;
+      }
+      
+      // Prepare order data
+      const orderData = {
+        items: cart.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity
+        }))
+      };
+      
+      try {
+        // Send order data to server
+        const response = await axios.post("/api/customer/orders", orderData, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        // Clear cart from localStorage
+        localStorage.removeItem("cart");
+        
+        alert("Order placed successfully!");
+        closeCheckout();
+        await loadOrders(); // Refresh cart display
+      } catch (err) {
+        console.error("Error placing order:", err.response?.data || err.message);
+        alert("Failed to place order: " + (err.response?.data?.message || err.message));
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      loadOrders();
+      document.getElementById("logout-btn").addEventListener("click", logout);
+      
+      // Modal event listeners
+      const modal = document.getElementById('checkoutModal');
+      const closeBtn = document.querySelector('.close');
+      
+      closeBtn.addEventListener('click', closeCheckout);
+      window.addEventListener('click', (event) => {
+        if (event.target === modal) {
+          closeCheckout();
+        }
+      });
+      
+      // Form submission
+      document.getElementById('checkoutForm').addEventListener('submit', placeOrder);
+    });
+  </script>
+</body>
+</html>

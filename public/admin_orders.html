@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin - Orders</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        #ordersTable {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background-color: #fff;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        #ordersTable th,
+        #ordersTable td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        #ordersTable th {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        #ordersTable tr:hover {
+            background-color: #f1f1f1;
+        }
+
+        .cancel-btn {
+            background-color: #e74c3c;
+            color: white;
+            padding: 5px 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .cancel-btn:hover {
+            background-color: #c0392b;
+        }
+
+        #searchInput {
+            width: 300px;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Admin - Customer Orders</h1>
+
+    <input type="text" id="searchInput" placeholder="Search by customer or product..." />
+
+    <table id="ordersTable">
+        <thead>
+            <tr>
+                <th>Customer</th>
+                <th>Product</th>
+                <th>Price</th>
+                <th>Ordered On</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="ordersBody">
+            <!-- Orders will be populated here -->
+        </tbody>
+    </table>
+
+    <script>
+        const ordersBody = document.getElementById('ordersBody');
+        const searchInput = document.getElementById('searchInput');
+
+        async function fetchOrders() {
+            try {
+                const res = await axios.get('/api/admin/orders');
+                const orders = res.data;
+
+                renderOrders(orders);
+                searchInput.addEventListener('input', () => filterOrders(orders));
+            } catch (err) {
+                console.error('Error fetching orders:', err);
+            }
+        }
+
+        function renderOrders(orders) {
+            ordersBody.innerHTML = '';
+            orders.forEach(order => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+          <td>${order.customerName || 'N/A'}</td>
+          <td>${order.productName}</td>
+          <td>₹${order.price}</td>
+          <td>${new Date(order.createdAt).toLocaleString()}</td>
+          <td><button class="cancel-btn" onclick="cancelOrder('${order._id}')">Cancel</button></td>
+        `;
+                ordersBody.appendChild(tr);
+            });
+        }
+
+        function filterOrders(orders) {
+            const query = searchInput.value.toLowerCase();
+            const filtered = orders.filter(order =>
+                (order.customerName && order.customerName.toLowerCase().includes(query)) ||
+                order.productName.toLowerCase().includes(query)
+            );
+            renderOrders(filtered);
+        }
+
+        async function cancelOrder(orderId) {
+            if (!confirm("Are you sure you want to cancel this order?")) return;
+
+            try {
+                await axios.delete(`/api/admin/orders/${orderId}`);
+                alert("Order cancelled successfully.");
+                fetchOrders(); // refresh list
+            } catch (err) {
+                console.error("Error cancelling order:", err);
+                alert("Failed to cancel order.");
+            }
+        }
+
+        fetchOrders();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Customers</title>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      background-color: #f8f9fa;
+    }
+    nav {
+      background-color: #343a40;
+      color: white;
+      padding: 10px 20px;
+      display: flex;
+      gap: 20px;
+      align-items: center;
+    }
+    nav a {
+      color: white;
+      text-decoration: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    nav a:hover {
+      text-decoration: underline;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #007bff;
+      color: white;
+    }
+    tr:nth-child(even) {
+      background-color: #f2f2f2;
+    }
+    tr:hover {
+      background-color: #ddd;
+    }
+    .controls {
+      margin: 20px;
+      display: flex;
+      gap: 15px;
+      align-items: center;
+    }
+    .controls input[type="text"], .controls select {
+      padding: 8px 12px;
+      font-size: 1em;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    .actions-cell button {
+      margin-right: 5px;
+      padding: 5px 10px;
+      cursor: pointer;
+      border: 1px solid #007bff;
+      border-radius: 3px;
+      background-color: white;
+      color: #007bff;
+    }
+    .actions-cell button:hover {
+      background-color: #007bff;
+      color: white;
+    }
+    /* Modal Styles */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0,0,0,0.5);
+    }
+    .modal-content {
+      background-color: #fefefe;
+      margin: 10% auto;
+      padding: 20px;
+      border: 1px solid #888;
+      width: 80%;
+      max-width: 500px;
+      border-radius: 8px;
+      position: relative;
+    }
+    .close-btn {
+      color: #aaa;
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .close-btn:hover, .close-btn:focus {
+      color: black;
+    }
+    #editForm label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    #editForm input[type="text"], #editForm input[type="email"] {
+      width: calc(100% - 20px);
+      padding: 8px;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="admin_dashboard.html">Dashboard</a>
+    <a href="admin_products.html">Products</a>
+    <a href="admin_customer.html" style="text-decoration: underline;">Customers</a>
+    <a href="admin_orders.html">Orders</a>
+    <a href="admin_settings.html">Settings</a>
+    <a href="admin_logout.html">Logout</a>
+  </nav>
+
+  <h1>Registered Customers</h1>
+
+  <div class="controls">
+    <input type="text" id="searchInput" placeholder="Search by name or email...">
+    <select id="statusFilter">
+      <option value="all">All Statuses</option>
+      <option value="active">Active</option>
+      <option value="inactive">Inactive</option>
+    </select>
+  </div>
+
+  <table id="customerTable">
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Name</th>
+        <th>Email</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Customer rows will be inserted here -->
+    </tbody>
+  </table>
+
+  <!-- Edit Customer Modal -->
+  <div id="editModal" class="modal">
+    <div class="modal-content">
+      <span class="close-btn" onclick="closeEditModal()">&times;</span>
+      <h2>Edit Customer</h2>
+      <form id="editForm" onsubmit="event.preventDefault(); saveCustomerChanges();">
+        <input type="hidden" id="editCustomerId">
+        <label for="editFirstName">First Name:</label>
+        <input type="text" id="editFirstName">
+        <label for="editLastName">Last Name:</label>
+        <input type="text" id="editLastName">
+        <label for="editEmail">Email:</label>
+        <input type="email" id="editEmail">
+        <label for="editIsActive" style="margin-top: 20px; display: flex; align-items: center; gap: 10px;">
+          <input type="checkbox" id="editIsActive" style="width: auto;"> Portal Access Enabled
+        </label>
+        <button type="submit" style="margin-top: 20px; background-color: #28a745; color: white; padding: 10px 15px; border: none; border-radius: 4px;">Save Changes</button>
+      </form>
+      <hr style="margin: 20px 0;">
+      <h3>Admin Actions</h3>
+      <button onclick="resetCustomerPassword()">Reset Password</button>
+      <div id="passwordResetInfo" style="display:none; margin-top:10px; background-color:#eef; padding: 8px; border-radius: 4px; border: 1px solid #cce;"></div>
+    </div>
+  </div>
+
+  <script>
+    let allCustomers = [];
+    const token = localStorage.getItem("adminToken");
+    if (!token) {
+      alert("Not logged in. Redirecting...");
+      window.location.href = "/admin/login.html";
+    }
+
+    async function fetchCustomers() {
+      try {
+        const res = await axios.get('/api/admin/customers', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const customers = res.data;
+        if (!Array.isArray(customers)) {
+          throw new Error("Invalid customer list");
+        }
+        allCustomers = customers.map(c => ({ ...c, _id: c._id || `mock_${Math.random()}` }));
+        filterAndRender();
+      } catch (err) {
+        console.error("Failed to load customers:", err);
+        alert("Failed to load customers.");
+      }
+    }
+
+    function filterAndRender() {
+      const searchInput = document.getElementById('searchInput').value.toLowerCase();
+      const statusFilter = document.getElementById('statusFilter').value;
+
+      const filteredCustomers = allCustomers.filter(customer => {
+        // Robustly construct full name for searching.
+        let fullName = ((customer.firstname || '') + ' ' + (customer.lastname || '')).trim();
+        if (!fullName) {
+          fullName = customer.name || ''; // Fallback for older data
+        }
+        fullName = fullName.toLowerCase();
+        const email = (customer.email || '').toLowerCase();
+
+        const matchesSearch = fullName.includes(searchInput) || email.includes(searchInput);
+
+        const matchesStatus = (statusFilter === 'all') ||
+                              (statusFilter === 'active' && customer.status === 'Active') ||
+                              (statusFilter === 'inactive' && customer.status !== 'Active');
+
+        return matchesSearch && matchesStatus;
+      });
+
+      renderCustomers(filteredCustomers);
+    }
+
+    function renderCustomers(customers) {
+      const tbody = document.querySelector("#customerTable tbody");
+      tbody.innerHTML = "";
+      customers.forEach((customer, index) => {
+        const tr = document.createElement("tr");
+
+        // Robustly construct the full name from available fields.
+        let fullName = ((customer.firstname || '') + ' ' + (customer.lastname || '')).trim();
+        if (!fullName) {
+          fullName = customer.name || 'N/A'; // Fallback for older data or if name parts are missing
+        }
+
+        tr.innerHTML = `
+          <td>${index + 1}</td>
+          <td>${fullName}</td>
+          <td>${customer.email || "N/A"}</td>
+          <td>${customer.status === 'Active' ? 'Active' : 'Inactive'}</td>
+          <td class="actions-cell">
+            <button onclick="viewCustomer('${customer._id}')">View/Edit</button>
+            <button onclick="impersonateCustomer('${customer._id}')">Impersonate</button>
+            <button onclick="deleteCustomer('${customer._id}', '${fullName.replace(/'/g, "\\'")}')">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function viewCustomer(id) {
+      const customer = allCustomers.find(c => c._id === id);
+      if (!customer) {
+        alert('Customer not found!');
+        return;
+      }
+
+      // Populate the modal directly from the customer object's properties.
+      document.getElementById('editCustomerId').value = customer._id;
+      document.getElementById('editFirstName').value = customer.firstname || '';
+      document.getElementById('editLastName').value = customer.lastname || '';
+      document.getElementById('editEmail').value = customer.email || '';
+      document.getElementById('editIsActive').checked = customer.status === 'Active';
+
+      document.getElementById('passwordResetInfo').style.display = 'none';
+      document.getElementById('passwordResetInfo').textContent = '';
+
+      document.getElementById('editModal').style.display = 'block';
+    }
+
+    function closeEditModal() { document.getElementById('editModal').style.display = 'none'; }
+
+    function impersonateCustomer(id) {
+      // This requires a backend endpoint to generate a temporary,
+      // secure impersonation token for the admin.
+      if (confirm('Are you sure you want to impersonate this customer?')) {
+        alert(`Impersonating customer ${id}.\n\nThis would call a backend API to get an impersonation token, then redirect you to the customer portal as this user.`);
+        // Example: window.location.href = \`/impersonate?userId=\${id}&adminToken=\${token}\`;
+      }
+    }
+
+    async function saveCustomerChanges() {
+      const id = document.getElementById('editCustomerId').value;
+      const payload = {
+        firstname: document.getElementById('editFirstName').value,
+        lastname: document.getElementById('editLastName').value,
+        email: document.getElementById('editEmail').value,
+        status: document.getElementById('editIsActive').checked ? 'Active' : 'Blocked'
+      };
+
+      try {
+        await axios.put(`/api/admin/customers/${id}`, payload, { headers: { Authorization: `Bearer ${token}` } });
+        alert('Customer updated successfully.');
+        closeEditModal();
+        fetchCustomers();
+      } catch (err) {
+        console.error('Failed to update customer:', err);
+        alert('Failed to update customer. ' + (err.response?.data?.message || ''));
+      }
+    }
+
+    async function resetCustomerPassword() {
+      const id = document.getElementById('editCustomerId').value;
+      if (!confirm('Are you sure you want to reset the password for this customer?')) {
+        return;
+      }
+      const passwordInfoDiv = document.getElementById('passwordResetInfo');
+      passwordInfoDiv.style.display = 'block';
+      passwordInfoDiv.textContent = 'Resetting...';
+
+      try {
+        const res = await axios.post(`/api/admin/customers/${id}/reset-password`, {}, { headers: { Authorization: `Bearer ${token}` } });
+        passwordInfoDiv.innerHTML = `Password reset successfully. New temporary password: <strong style="color: #d9534f; font-size: 1.1em;">${res.data.tempPassword}</strong><br>Please advise the customer to change it upon next login.`;
+      } catch (err) {
+        console.error('Failed to reset password:', err);
+        passwordInfoDiv.textContent = 'Failed to reset password.';
+      }
+    }
+
+    async function deleteCustomer(id, name) {
+      if (confirm(`Are you sure you want to delete ${name}? This action cannot be undone.`)) {
+        try {
+          await axios.delete(`/api/admin/customers/${id}`, { headers: { Authorization: `Bearer ${token}` } });
+          alert('Customer deleted successfully.');
+          fetchCustomers(); // Refresh the list
+        } catch (err) {
+          console.error('Failed to delete customer:', err);
+          alert('Failed to delete customer.');
+        }
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      fetchCustomers();
+      document.getElementById('searchInput').addEventListener('input', filterAndRender);
+      document.getElementById('statusFilter').addEventListener('change', filterAndRender);
+
+      window.onclick = function(event) {
+        if (event.target == document.getElementById('editModal')) {
+          closeEditModal();
+        }
+      }
+    });
+  </script>
+</body>
+</html>
